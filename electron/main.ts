@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, session } from 'electron'
 import { join } from 'path'
 import { readFileSync, writeFileSync, existsSync, mkdirSync } from 'fs'
 import { homedir } from 'os'
@@ -84,8 +84,14 @@ function createWindow() {
     webPreferences: {
       preload: join(__dirname, 'preload.js'),
       contextIsolation: true,
-      nodeIntegration: false
+      nodeIntegration: false,
+      webSecurity: false  // allow cross-origin requests to remote API servers
     }
+  })
+
+  // Bypass proxy for loopback so local server connections work under VPN/proxy
+  session.defaultSession.setProxy({
+    proxyBypassRules: '<-loopback>'
   })
 
   registerIpcHandlers(win)

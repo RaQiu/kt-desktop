@@ -10,7 +10,8 @@
       </div>
     </div>
 
-    <el-alert v-if="!serverRunning" title="Server is not running. Start it from the Service page." type="warning" show-icon style="margin: 10px 20px" />
+    <el-alert v-if="!serverAvailable && !checkingServer" title="Server is not reachable. Check your connection settings." type="warning" show-icon style="margin: 10px 20px" />
+    <el-alert v-if="isRemoteMode" :title="`Remote: ${remoteUrl}`" type="info" :closable="false" style="margin: 0 20px" />
 
     <div class="messages" ref="messagesEl">
       <div v-if="messages.length === 0" class="empty-hint">
@@ -34,7 +35,7 @@
         :rows="3"
         placeholder="Type a message... (Enter to send, Shift+Enter for newline)"
         @keydown.enter.exact.prevent="sendMessage"
-        :disabled="streaming || !serverRunning"
+        :disabled="streaming || !serverAvailable"
       />
       <div class="input-actions">
         <el-popover trigger="click" width="400">
@@ -46,7 +47,7 @@
         <el-button
           type="primary"
           @click="sendMessage"
-          :disabled="!inputText.trim() || streaming || !serverRunning"
+          :disabled="!inputText.trim() || streaming || !serverAvailable"
           :loading="streaming"
         >
           Send
@@ -58,7 +59,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, nextTick, onMounted } from 'vue'
+import { ref, computed, nextTick, onMounted, onUnmounted } from 'vue'
 import { useServerStore } from '@/stores/server'
 import { useModelsStore } from '@/stores/models'
 import { useConfigStore } from '@/stores/config'
@@ -77,21 +78,62 @@ const streaming = ref(false)
 const streamBuffer = ref('')
 const selectedModel = ref('')
 const messagesEl = ref<HTMLElement>()
+const checkingServer = ref(false)
+const remoteServerAlive = ref(false)
 
 let abortController: AbortController | null = null
+
+const isRemoteMode = computed(() => configStore.config?.server?.mode === 'remote')
+const remoteUrl = computed(() => (configStore.config?.server?.remoteUrl || '').replace(/\/+$/, ''))
 
 const serverPort = computed(() => configStore.config?.server?.port || 30000)
 const serverHost = computed(() => configStore.config?.server?.host || '0.0.0.0')
 const serverUrl = computed(() => {
+  if (isRemoteMode.value && remoteUrl.value) return remoteUrl.value
   const host = serverHost.value === '0.0.0.0' ? 'localhost' : serverHost.value
   return `http://${host}:${serverPort.value}`
 })
 
+const serverAvailable = computed(() => {
+  if (isRemoteMode.value) return remoteServerAlive.value
+  return serverRunning.value
+})
+
+let healthCheckInterval: any
+
+async function checkRemoteHealth() {
+  if (!isRemoteMode.value || !remoteUrl.value) {
+    remoteServerAlive.value = false
+    return
+  }
+  checkingServer.value = true
+  try {
+    const resp = await fetch(`${remoteUrl.value}/v1/models`, { signal: AbortSignal.timeout(3000) })
+    remoteServerAlive.value = resp.ok
+    if (resp.ok && !selectedModel.value) {
+      const data = await resp.json()
+      const remoteModels = (data.data || []).map((m: any) => m.id)
+      if (remoteModels.length > 0) selectedModel.value = remoteModels[0]
+    }
+  } catch {
+    remoteServerAlive.value = false
+  } finally {
+    checkingServer.value = false
+  }
+}
+
 onMounted(() => {
   modelsStore.load()
-  configStore.load()
+  configStore.load().then(() => {
+    if (isRemoteMode.value) checkRemoteHealth()
+  })
   serverStore.checkStatus()
+  healthCheckInterval = setInterval(() => {
+    if (isRemoteMode.value) checkRemoteHealth()
+  }, 10000)
 })
+
+onUnmounted(() => clearInterval(healthCheckInterval))
 
 function renderContent(text: string): string {
   // Basic escaping + code block highlighting

@@ -1,25 +1,63 @@
 import { defineStore } from 'pinia'
 import { ref } from 'vue'
 
+const STORAGE_KEY = 'kt-config'
+const hasElectron = typeof window !== 'undefined' && !!window.electronAPI?.config
+
+function defaultConfig() {
+  return {
+    general: { language: 'auto', color: true, verbose: false },
+    paths: { models: [], cache: '', weights: '' },
+    server: { mode: 'local', host: '0.0.0.0', port: 30000, remoteUrl: '' },
+    inference: { env: {} },
+    download: { mirror: '', resume: true, verify: true },
+    advanced: { env: {}, sglang_args: [], llamafactory_args: [] }
+  }
+}
+
 export const useConfigStore = defineStore('config', () => {
-  const config = ref<any>({})
+  const config = ref<any>(defaultConfig())
   const dirty = ref(false)
 
   async function load() {
-    config.value = await window.electronAPI.config.getAll()
+    if (hasElectron) {
+      const data = await window.electronAPI.config.getAll()
+      config.value = { ...defaultConfig(), ...data }
+      // Ensure server section has all fields
+      config.value.server = { ...defaultConfig().server, ...config.value.server }
+    } else {
+      // Browser fallback: use localStorage
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY)
+        if (stored) {
+          const parsed = JSON.parse(stored)
+          config.value = { ...defaultConfig(), ...parsed }
+          config.value.server = { ...defaultConfig().server, ...config.value.server }
+        }
+      } catch {}
+    }
     dirty.value = false
   }
 
   async function save() {
-    for (const key in config.value) {
-      await window.electronAPI.config.set(key, config.value[key])
+    if (hasElectron) {
+      for (const key in config.value) {
+        await window.electronAPI.config.set(key, config.value[key])
+      }
+    } else {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(config.value))
     }
     dirty.value = false
   }
 
   async function reset() {
-    await window.electronAPI.config.reset()
-    await load()
+    if (hasElectron) {
+      await window.electronAPI.config.reset()
+    } else {
+      localStorage.removeItem(STORAGE_KEY)
+    }
+    config.value = defaultConfig()
+    dirty.value = false
   }
 
   function update(key: string, value: any) {

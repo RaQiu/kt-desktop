@@ -3,7 +3,7 @@
     <el-button @click="appStore.toggleSidebar" :icon="Fold" circle />
     <div class="spacer"></div>
     <el-dropdown @command="handleLocale">
-      <el-button :icon="Globe" circle />
+      <el-button :icon="Switch" circle />
       <template #dropdown>
         <el-dropdown-menu>
           <el-dropdown-item command="en">English</el-dropdown-item>
@@ -19,7 +19,7 @@
 import { computed } from 'vue'
 import { useI18n } from 'vue-i18n'
 import { useAppStore } from '@/stores/app'
-import { Fold, Globe, Moon, Sunny } from '@element-plus/icons-vue'
+import { Fold, Switch, Moon, Sunny } from '@element-plus/icons-vue'
 
 const appStore = useAppStore()
 const { locale } = useI18n()

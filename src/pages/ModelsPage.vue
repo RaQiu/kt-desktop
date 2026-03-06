@@ -81,8 +81,6 @@
             </el-button>
           </div>
           <KvCachePanel :model-path="selectedModel.path" />
-            </el-button>
-          </div>
         </el-card>
         <el-empty v-else description="Select a model to view details" />
       </div>
@@ -111,7 +109,10 @@
         <el-progress v-if="downloadPercent >= 0" :percentage="downloadPercent" style="margin-bottom: 8px" />
         <div class="log-text">{{ downloadLogs[downloadLogs.length - 1] }}</div>
       </div>
-    </el-card> title="Add Model" width="600px">
+    </el-card>
+
+    <!-- Add Model Dialog -->
+    <el-dialog v-model="showAddDialog" title="Add Model" width="600px">
       <el-form :model="form" label-width="120px">
         <el-form-item label="Name">
           <el-input v-model="form.name" placeholder="Model name" />

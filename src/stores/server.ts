@@ -1,6 +1,8 @@
 import { defineStore } from 'pinia'
 import { ref, computed } from 'vue'
 
+const hasElectron = typeof window !== 'undefined' && !!window.electronAPI?.server
+
 export const useServerStore = defineStore('server', () => {
   const running = ref(false)
   const pid = ref<number | null>(null)
@@ -17,6 +19,7 @@ export const useServerStore = defineStore('server', () => {
   })
 
   async function start(config: any) {
+    if (!hasElectron) return { success: false, error: 'Not in Electron' }
     const result = await window.electronAPI.server.start(config)
     if (result.success) {
       running.value = true
@@ -28,6 +31,7 @@ export const useServerStore = defineStore('server', () => {
   }
 
   async function stop() {
+    if (!hasElectron) return { success: false, error: 'Not in Electron' }
     const result = await window.electronAPI.server.stop()
     if (result.success) {
       running.value = false
@@ -39,6 +43,7 @@ export const useServerStore = defineStore('server', () => {
   }
 
   async function checkStatus() {
+    if (!hasElectron) return
     const status = await window.electronAPI.server.status()
     running.value = status.running
     pid.value = status.pid

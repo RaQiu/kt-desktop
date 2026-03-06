@@ -51,13 +51,33 @@
       </el-tab-pane>
 
       <el-tab-pane label="Server" name="server">
-        <el-form label-width="150px">
-          <el-form-item label="Host">
-            <el-input v-model="config.server.host" @change="markDirty" />
+        <el-form label-width="180px">
+          <el-form-item label="Connection Mode">
+            <el-radio-group v-model="config.server.mode" @change="markDirty">
+              <el-radio value="local">Local</el-radio>
+              <el-radio value="remote">Remote</el-radio>
+            </el-radio-group>
           </el-form-item>
-          <el-form-item label="Port">
-            <el-input-number v-model="config.server.port" @change="markDirty" :min="1024" :max="65535" />
-          </el-form-item>
+
+          <template v-if="config.server.mode !== 'remote'">
+            <el-form-item label="Host">
+              <el-input v-model="config.server.host" @change="markDirty" />
+            </el-form-item>
+            <el-form-item label="Port">
+              <el-input-number v-model="config.server.port" @change="markDirty" :min="1024" :max="65535" />
+            </el-form-item>
+          </template>
+
+          <template v-else>
+            <el-form-item label="Remote Server URL">
+              <el-input v-model="config.server.remoteUrl" @change="markDirty" placeholder="https://your-server:8443">
+                <template #append>
+                  <el-button @click="testRemoteConnection" :loading="testingConnection">Test</el-button>
+                </template>
+              </el-input>
+            </el-form-item>
+            <el-alert v-if="connectionTestResult" :title="connectionTestResult.message" :type="connectionTestResult.type" show-icon closable style="margin-bottom: 12px" />
+          </template>
         </el-form>
       </el-tab-pane>
 
@@ -170,6 +190,32 @@ const newAdvEnvValue = ref('')
 const modelPaths = ref<string[]>([])
 const sglangArgsStr = ref('')
 const llamafactoryArgsStr = ref('')
+const testingConnection = ref(false)
+const connectionTestResult = ref<{ type: 'success' | 'error'; message: string } | null>(null)
+
+async function testRemoteConnection() {
+  const url = config.value.server?.remoteUrl
+  if (!url) {
+    connectionTestResult.value = { type: 'error', message: 'Please enter a URL' }
+    return
+  }
+  testingConnection.value = true
+  connectionTestResult.value = null
+  try {
+    const resp = await fetch(`${url.replace(/\/+$/, '')}/v1/models`, { signal: AbortSignal.timeout(5000) })
+    if (resp.ok) {
+      const data = await resp.json()
+      const models = (data.data || []).map((m: any) => m.id).join(', ')
+      connectionTestResult.value = { type: 'success', message: `Connected! Models: ${models || 'none'}` }
+    } else {
+      connectionTestResult.value = { type: 'error', message: `HTTP ${resp.status}` }
+    }
+  } catch (e: any) {
+    connectionTestResult.value = { type: 'error', message: e.message || 'Connection failed' }
+  } finally {
+    testingConnection.value = false
+  }
+}
 
 onMounted(async () => {
   await configStore.load()

@@ -9,7 +9,7 @@ const CONFIG_FILE = join(CONFIG_DIR, 'config.yaml')
 const DEFAULT_CONFIG = {
   general: { language: 'auto', color: true, verbose: false },
   paths: { models: join(CONFIG_DIR, 'models'), cache: join(CONFIG_DIR, 'cache'), weights: '' },
-  server: { host: '0.0.0.0', port: 30000 },
+  server: { mode: 'local', host: '0.0.0.0', port: 30000, remoteUrl: '' },
   inference: { env: { PYTORCH_ALLOC_CONF: 'expandable_segments:True', SGLANG_ENABLE_JIT_DEEPGEMM: '0' } },
   download: { mirror: '', resume: true, verify: true },
   advanced: { env: {}, sglang_args: [], llamafactory_args: [] }
